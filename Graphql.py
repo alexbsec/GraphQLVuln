@@ -1,7 +1,5 @@
-
 import json
 import requests
-from requests import *
 from bs4 import BeautifulSoup
 import time
 
@@ -10,12 +8,12 @@ LETTERS = 'abcdefghijklmnopqrs'
 
 
 class NormalQuery:
-    def __init__(self, url, endpoint, method, induce_error=False, req_per_sec=10, timout=20, **kwargs):
+    def __init__(self, url, endpoint, req_method, induce_error=False, req_per_sec=10, timout=20, **kwargs):
         self.URL = url
 
 
 class IntrospectionQuery:
-    def __init__(self, url, endpoint, method, induce_error=False, req_per_sec=10, timeout=20, **kwargs):
+    def __init__(self, url, endpoint, req_method, induce_error=False, req_per_sec=10, timeout=20, **kwargs):
         self.URL = url
         self.endpoint = endpoint
         self.induce_error = induce_error
@@ -40,20 +38,24 @@ class IntrospectionQuery:
             "GraphQL introspection is not allowed"
         ]
 
-        soups_responses = self.request_query(method)
+
+
+        if req_method == 'POST':
+            soups_responses = self.POST_request_query()
+        elif req_method == 'GET':
+            soups_resposes = self.GET_request_query()
+
         self.soup_analyzer(soups_responses)
 
         
 
-
-
-    def request_query(self, method, **kwargs):
+    def POST_request_query(self, **kwargs):
         soups = {}
 
         if not self.induce_error:
             for query in self.query_db:
-                print(f'[-] Applying {self.method} request on {self.URL} with query {query}...')
-                r = requests.method(self.URL, data={"query":query}, timout=self.timout)
+                print(f'[-] Sending POST request on {self.URL}/{self.endpoint} with query {query}...')
+                r = requests.post(f"{self.URL}/{self.endpoint}", data={"query":query}, timout=self.timout)
                 soup = BeautifulSoup(r.content, 'html.parser')
                 soups[query] = soup
                 time.sleep(self.requests_per_second)
@@ -61,13 +63,37 @@ class IntrospectionQuery:
             return soups
 
         for query in self.invalid_query_db:
-            print(f'[-] Applying {self.method} request on {self.URL} with invalid query {query}...')
-            r = requests.method(self.URL, data={"query":query})
+            print(f'[-] Sending POST request on {self.URL}/{self.endpoint} with invalid query {query}...')
+            r = requests.post(f"{self.URL}/{self.endpoint}", data={"query":query}, timeout=self.timout)
             soup = BeautifulSoup(r.content, 'html.parser')
             soups[query] = soup
             time.sleep(self.requests_per_second)
 
         return soups
+
+
+    def GET_request_query(self, **kwargs):
+        soups = {}
+
+        if not self.induce_error:
+            for query in self.query_db:
+                print(f'[-] Sending GET request on {self.URL}/{self.endpoint} with query {query}...')
+                r = requests.post(f"{self.URL}/{self.endpoint}?query={query}", timout=self.timout)
+                soup = BeautifulSoup(r.content, 'html.parser')
+                soups[query] = soup
+                time.sleep(self.requests_per_second)
+
+            return soups
+
+        for query in self.invalid_query_db:
+            print(f'[-] Sending GET request on {self.URL}/{self.endpoint} with invalid query {query}...')
+            r = requests.post(f"{self.URL}/{self.endpoint}?query={query}", timeout=self.timout)
+            soup = BeautifulSoup(r.content, 'html.parser')
+            soups[query] = soup
+            time.sleep(self.requests_per_second)
+
+        return soups
+    
         
             
     def soup_analyzer(self, responses):
